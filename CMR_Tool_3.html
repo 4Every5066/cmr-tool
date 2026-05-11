@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CMR Generator — 4Everyware</title>
+<style>
+@page { size: A4 portrait; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #f0f2f5; min-height: 100vh; padding: 24px; color: #111; }
+h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+.sub { font-size: 13px; color: #666; margin-bottom: 24px; }
+.card { background: #fff; border-radius: 12px; border: 1px solid #e0e0e0; padding: 22px; margin-bottom: 18px; }
+.card-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+.upload-area { border: 2px dashed #ccc; border-radius: 10px; padding: 32px; text-align: center; cursor: pointer; transition: all .15s; }
+.upload-area:hover, .upload-area.drag { border-color: #185FA5; background: rgba(24,95,165,.05); }
+.upload-area input { display: none; }
+.upload-icon { font-size: 36px; margin-bottom: 10px; }
+.upload-area p { font-size: 13px; color: #666; }
+.upload-area .hint { font-size: 11px; color: #999; margin-top: 5px; }
+.badge { display: inline-flex; align-items: center; gap: 7px; background: #e1f5ee; color: #0F6E56; border-radius: 20px; padding: 5px 13px; font-size: 12px; font-weight: 500; margin-top: 10px; }
+.status { display: flex; align-items: center; gap: 9px; padding: 11px 15px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; }
+.status.loading { background: #faeeda; color: #854F0B; }
+.status.ok { background: #e1f5ee; color: #0F6E56; }
+.status.err { background: #fcebeb; color: #A32D2D; flex-direction: column; align-items: flex-start; }
+.err-detail { font-size: 11px; margin-top: 4px; opacity: .8; word-break: break-all; }
+.spin { display: inline-block; width: 15px; height: 15px; border: 2px solid #ddd; border-top-color: #185FA5; border-radius: 50%; animation: sp .6s linear infinite; flex-shrink: 0; }
+@keyframes sp { to { transform: rotate(360deg); } }
+.section-lbl { font-size: 11px; font-weight: 600; color: #185FA5; margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 1.5px solid rgba(24,95,165,.2); text-transform: uppercase; letter-spacing: .4px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 3px; }
+.field label { font-size: 11px; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: .4px; }
+.field input, .field textarea { padding: 8px 10px; border: 0.5px solid #ccc; border-radius: 7px; font-size: 13px; color: #111; background: #fff; font-family: Arial, sans-serif; }
+.field input:focus, .field textarea:focus { outline: none; border-color: #185FA5; box-shadow: 0 0 0 2.5px rgba(24,95,165,.1); }
+.field textarea { resize: vertical; min-height: 60px; }
+.goods-header { display: grid; grid-template-columns: 2fr 2.5fr 1fr 1fr 1fr 30px; gap: 7px; margin-bottom: 3px; }
+.goods-header span { font-size: 10px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: .3px; }
+.goods-row { display: grid; grid-template-columns: 2fr 2.5fr 1fr 1fr 1fr 30px; gap: 7px; margin-bottom: 7px; align-items: end; }
+.del-btn { width: 30px; height: 34px; border: 0.5px solid #fcc; background: rgba(220,50,50,.05); color: #c53030; border-radius: 7px; cursor: pointer; font-size: 16px; }
+.del-btn:hover { background: rgba(220,50,50,.1); }
+.add-row-btn { font-size: 12px; color: #185FA5; background: none; border: 1px dashed rgba(24,95,165,.4); border-radius: 7px; padding: 6px 13px; cursor: pointer; margin-top: 3px; }
+.add-row-btn:hover { background: rgba(24,95,165,.06); }
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: opacity .15s; }
+.btn-ok { background: #1D9E75; color: #fff; }
+.btn-ok:hover { opacity: .87; }
+.btn-ghost { background: #f0f0f0; color: #333; border: 0.5px solid #ccc; }
+.btn-ghost:hover { background: #e5e5e5; }
+.btn-retry { background: #185FA5; color: #fff; margin-top: 8px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+</style>
+</head>
+<body>
+
+<h1>📦 CMR Generator</h1>
+<p class="sub">Upload your order PDF — AI fills the CMR form. Review, then print directly onto your CMR template.</p>
+
+<!-- Step 1: Upload -->
+<div class="card">
+  <div class="card-title">📄 Step 1 — Upload order document</div>
+  <div class="upload-area" id="ua" onclick="document.getElementById('fi').click()">
+    <input type="file" id="fi" accept=".pdf,.png,.jpg,.jpeg" onchange="handleFile(event)">
+    <div class="upload-icon">📂</div>
+    <p>Click to upload or drag & drop your order PDF or image</p>
+    <p class="hint">PDF · PNG · JPG supported</p>
+  </div>
+  <div id="fb"></div>
+</div>
+
+<div id="sb"></div>
+
+<!-- Step 2: Review form -->
+<div class="card" id="fc" style="display:none">
+  <div class="card-title">📝 Step 2 — Review & edit CMR data</div>
+
+  <div class="section-lbl">1. Sender</div>
+  <div class="grid2">
+    <div class="field"><label>Company</label><input id="sN" type="text"></div>
+    <div class="field"><label>Address</label><input id="sA" type="text"></div>
+    <div class="field"><label>City / Postcode</label><input id="sC" type="text"></div>
+    <div class="field"><label>Country</label><input id="sCC" type="text"></div>
+  </div>
+
+  <div class="section-lbl">2. Consignee</div>
+  <div class="grid2">
+    <div class="field"><label>Company</label><input id="cN" type="text"></div>
+    <div class="field"><label>Address</label><input id="cA" type="text"></div>
+    <div class="field"><label>City / Postcode</label><input id="cC" type="text"></div>
+    <div class="field"><label>Country</label><input id="cCC" type="text"></div>
+  </div>
+
+  <div class="section-lbl">3. Place of delivery</div>
+  <div class="grid2">
+    <div class="field"><label>City</label><input id="dp" type="text"></div>
+    <div class="field"><label>Country</label><input id="dc" type="text"></div>
+  </div>
+
+  <div class="section-lbl">4. Place & date of taking over goods</div>
+  <div class="grid2">
+    <div class="field"><label>Place</label><input id="lp" type="text"></div>
+    <div class="field"><label>Country</label><input id="lc" type="text"></div>
+    <div class="field"><label>Date</label><input id="td" type="date"></div>
+  </div>
+
+  <div class="section-lbl">5. Documents attached</div>
+  <div class="field"><input id="docs" type="text" placeholder="e.g. Paklijst 10134516"></div>
+
+  <div class="section-lbl">Goods (boxes 6–12)</div>
+  <div class="goods-header">
+    <span>Marks / Art.code</span><span>Description</span><span>Packages</span><span>Kind</span><span>Weight kg</span><span></span>
+  </div>
+  <div id="gr"></div>
+  <button class="add-row-btn" onclick="addRow()">+ Add row</button>
+
+  <div class="section-lbl">13. Sender's instructions</div>
+  <div class="grid2">
+    <div class="field"><label>Order ref</label><input id="oref" type="text"></div>
+    <div class="field"><label>Extra ref</label><input id="eref" type="text"></div>
+  </div>
+
+  <div class="section-lbl">21. Established</div>
+  <div class="grid2">
+    <div class="field"><label>Place</label><input id="estP" type="text"></div>
+    <div class="field"><label>Date</label><input id="estD" type="date"></div>
+  </div>
+</div>
+
+<!-- Step 3: Print -->
+<div class="card" id="ac" style="display:none">
+  <div class="card-title">🖨️ Step 3 — Print CMR</div>
+  <div class="actions">
+    <button class="btn btn-ok" onclick="buildAndPrint()">🖨️ Print CMR</button>
+    <button class="btn btn-ghost" onclick="clearAll()">🔄 Start over</button>
+  </div>
+  <p id="printMsg" style="font-size:12px;color:#666;margin-top:10px">Opens a clean print dialog — print onto your CMR template.</p>
+</div>
+
+<iframe id="pf" style="display:none;width:0;height:0;border:none"></iframe>
+
+<script>
+let b64=null, mtype=null, gc=0;
+
+const ua=document.getElementById('ua');
+ua.addEventListener('dragover',e=>{e.preventDefault();ua.classList.add('drag')});
+ua.addEventListener('dragleave',()=>ua.classList.remove('drag'));
+ua.addEventListener('drop',e=>{e.preventDefault();ua.classList.remove('drag');if(e.dataTransfer.files[0])proc(e.dataTransfer.files[0])});
+function handleFile(e){proc(e.target.files[0])}
+
+function proc(f){
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    b64=e.target.result.split(',')[1];
+    mtype=f.type;
+    document.getElementById('fb').innerHTML=`<div class="badge">✅ ${f.name} (${(f.size/1024).toFixed(0)} KB)</div>`;
+    extract();
+  };
+  r.readAsDataURL(f);
+}
+
+function ss(type,msg,detail){
+  const det=detail?`<div class="err-detail">${detail}</div>`:'';
+  document.getElementById('sb').innerHTML=`<div class="status ${type}"><span>${msg}</span>${det}</div>`;
+}
+
+async function extract(){
+  ss('loading','<div class="spin"></div>&nbsp; Analysing document — extracting shipment data…');
+
+  const prompt=`Extract ALL shipping and goods information from this document. It may be a packing list (paklijst), delivery note, Lieferschein, order confirmation, or invoice in any language (Dutch, German, English, French, etc.).
+
+Return ONLY a valid JSON object. No markdown, no backticks, no explanation. Start your response with { and end with }.
+
+JSON structure:
+{
+  "sN": "Sender/shipper company name (look for: Afzender, Absender, Expéditeur, Shipper, Van, From — usually top-left or in company header)",
+  "sA": "Sender street and number",
+  "sC": "Sender postcode and city",
+  "sCC": "Sender country",
+  "cN": "Consignee/receiver company name (look for: Geadresseerde, Empfänger, Destinataire, Consignee, Aan, To, Klant, Lieferadresse, Delivery address)",
+  "cA": "Consignee street and number",
+  "cC": "Consignee postcode and city",
+  "cCC": "Consignee country",
+  "dp": "Delivery city — city where goods arrive (consignee city)",
+  "dc": "Delivery country — country where goods arrive (consignee country)",
+  "lp": "Loading city — city where goods depart (sender city)",
+  "lc": "Loading country — country where goods depart (sender country)",
+  "td": "Document date or shipping date in YYYY-MM-DD format",
+  "docs": "Document type and number e.g. Paklijst 10134516 or Lieferschein 00058078",
+  "goods": [
+    {
+      "marks": "Article/product code e.g. CW0234",
+      "desc": "Item code number + product name e.g. 25049 WMF Steamer Insert",
+      "pkgs": "Quantity as plain number",
+      "kind": "Unit type e.g. Stück, Pcs, Stuks, Box",
+      "wt": ""
+    }
+  ],
+  "oref": "Order number (look for: Ordernr, Auftragsnr, Bestelnummer, Order No)",
+  "eref": "",
+  "estP": "Same as loading city (sender city)",
+  "estD": "Same as document date in YYYY-MM-DD",
+  "totalPkgs": "Total quantity/packages as plain number",
+  "totalPallets": "Total pallets as plain number",
+  "totalWt": "Total gross weight as plain number e.g. 224.79"
+}`;
+
+  const content = mtype==='application/pdf'
+    ? [{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},{type:"text",text:prompt}]
+    : [{type:"image",source:{type:"base64",media_type:mtype,data:b64}},{type:"text",text:prompt}];
+
+  try{
+    const resp=await fetch("https://corsproxy.io/?https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:2000,
+        messages:[{role:"user",content}]
+      })
+    });
+
+    if(!resp.ok){
+      const errText=await resp.text();
+      throw new Error(`HTTP ${resp.status}: ${errText}`);
+    }
+
+    const data=await resp.json();
+
+    if(data.error){
+      throw new Error(data.error.message||JSON.stringify(data.error));
+    }
+
+    const txt=data.content.map(b=>b.text||'').join('');
+    // Extract JSON — find first { to last }
+    const start=txt.indexOf('{');
+    const end=txt.lastIndexOf('}');
+    if(start===-1||end===-1)throw new Error('No JSON found in response: '+txt.slice(0,200));
+    const jsonStr=txt.slice(start,end+1);
+    const parsed=JSON.parse(jsonStr);
+    fill(parsed);
+    ss('ok','✅ Data extracted — review the fields below and print when ready.');
+  }catch(e){
+    console.error('Extraction error:',e);
+    ss('err','⚠️ Could not extract automatically. You can fill in the fields manually.',e.message);
+    if(!document.getElementById('gr').children.length) addRow();
+  }
+  document.getElementById('fc').style.display='block';
+  document.getElementById('ac').style.display='block';
+}
+
+function fill(d){
+  const s=(id,v)=>{const e=document.getElementById(id);if(e&&v!==undefined&&v!=='')e.value=v};
+  s('sN',d.sN);s('sA',d.sA);s('sC',d.sC);s('sCC',d.sCC);
+  s('cN',d.cN);s('cA',d.cA);s('cC',d.cC);s('cCC',d.cCC);
+  s('dp',d.dp);s('dc',d.dc);
+  s('lp',d.lp);s('lc',d.lc);s('td',d.td);
+  s('docs',d.docs);
+  s('oref',d.oref);s('eref',d.eref);
+  s('estP',d.estP||d.lp);
+  s('estD',d.estD||d.td);
+  document.getElementById('gr').innerHTML='';gc=0;
+  const goods=d.goods&&d.goods.length?d.goods:[{}];
+  goods.forEach(g=>addRow(g.marks||'',g.desc||'',g.pkgs||'',g.kind||'',g.wt||''));
+  window._totalPkgs=d.totalPkgs||'';
+  window._totalPallets=d.totalPallets||'';
+  window._totalWt=d.totalWt||'';
+}
+
+function addRow(marks='',desc='',pkgs='',kind='',wt=''){
+  gc++;const id=gc;
+  const div=document.createElement('div');
+  div.className='goods-row';div.id='gr'+id;
+  div.innerHTML=`
+    <div class="field"><label>Marks</label><input type="text" id="gm${id}" value="${marks}" placeholder="CW0234"></div>
+    <div class="field"><label>Description</label><input type="text" id="gd${id}" value="${desc}" placeholder="25049 WMF, Steamer Insert"></div>
+    <div class="field"><label>Packages</label><input type="number" id="gp${id}" value="${pkgs}" placeholder="0" min="0"></div>
+    <div class="field"><label>Kind</label><input type="text" id="gk${id}" value="${kind}" placeholder="Stück"></div>
+    <div class="field"><label>Weight kg</label><input type="text" id="gw${id}" value="${wt}" placeholder="—"></div>
+    <button class="del-btn" onclick="document.getElementById('gr${id}').remove()" title="Remove">×</button>`;
+  document.getElementById('gr').appendChild(div);
+}
+
+const gv=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
+
+function getRows(){
+  const ids=[];
+  document.querySelectorAll('[id^="gr"]').forEach(el=>{
+    const i=el.id.replace('gr','');
+    if(!isNaN(i)&&i!=='')ids.push(i);
+  });
+  return ids;
+}
+
+function formatDate(d){
+  if(!d)return'';
+  const p=d.split('-');
+  if(p.length===3&&p[0].length===4)return`${p[2]}-${p[1]}-${p[0]}`;
+  return d;
+}
+
+function buildAndPrint(){
+  const rows=getRows();
+  const totalPkgs=window._totalPkgs||rows.reduce((s,id)=>s+(parseFloat(gv('gp'+id))||0),0)||'';
+  const totalPallets=window._totalPallets||'';
+  const totalWt=window._totalWt||'';
+  const totalWtFmt=totalWt?(isNaN(totalWt)?totalWt:parseFloat(totalWt).toFixed(2)+' kg'):'';
+  const totalsTop=(138+rows.length*9)+'mm';
+
+  let goodsHTML='';
+  rows.forEach((id,i)=>{
+    const top=(138+i*9)+'mm';
+    const marks=gv('gm'+id),desc=gv('gd'+id),pkgs=gv('gp'+id),kind=gv('gk'+id);
+    if(marks)goodsHTML+=`<div class="pf" style="left:22mm;top:${top}">${marks}</div>`;
+    if(pkgs) goodsHTML+=`<div class="pf" style="left:50mm;top:${top}">${pkgs}</div>`;
+    if(kind) goodsHTML+=`<div class="pf" style="left:68mm;top:${top}">${kind}</div>`;
+    if(desc) goodsHTML+=`<div class="pf" style="left:90mm;top:${top}">${desc}</div>`;
+  });
+  if(totalPkgs) goodsHTML+=`<div class="pf" style="left:50mm;top:${totalsTop};font-weight:bold">${totalPkgs}</div>`;
+  if(totalPallets) goodsHTML+=`<div class="pf" style="left:68mm;top:${totalsTop};font-weight:bold">${totalPallets} Pallets</div>`;
+  if(totalWtFmt) goodsHTML+=`<div class="pf" style="left:158mm;top:${totalsTop};font-weight:bold">${totalWtFmt}</div>`;
+
+  const senderBlock=
+    (gv('sN')?`<div class="pf" style="left:22mm;top:17mm;font-weight:bold">${gv('sN')}</div>`:'')+
+    (gv('sA')?`<div class="pf" style="left:22mm;top:22mm">${gv('sA')}</div>`:'')+
+    (gv('sC')?`<div class="pf" style="left:22mm;top:27mm">${gv('sC')}</div>`:'')+
+    (gv('sCC')?`<div class="pf" style="left:22mm;top:32mm">${gv('sCC')}</div>`:'');
+
+  const consigneeBlock=
+    (gv('cN')?`<div class="pf" style="left:22mm;top:43mm;font-weight:bold">${gv('cN')}</div>`:'')+
+    (gv('cA')?`<div class="pf" style="left:22mm;top:48mm">${gv('cA')}</div>`:'')+
+    (gv('cC')?`<div class="pf" style="left:22mm;top:53mm">${gv('cC')}</div>`:'')+
+    (gv('cCC')?`<div class="pf" style="left:22mm;top:58mm">${gv('cCC')}</div>`:'');
+
+  const deliveryBlock=
+    ((gv('dp')||gv('dc'))?`<div class="pf" style="left:22mm;top:70mm">${[gv('dp'),gv('dc')].filter(Boolean).join(', ')}</div>`:'');
+
+  const takeoverBlock=
+    ((gv('lp')||gv('lc'))?`<div class="pf" style="left:22mm;top:86mm">${[gv('lp'),gv('lc')].filter(Boolean).join(', ')}</div>`:'')+
+    (gv('td')?`<div class="pf" style="left:22mm;top:91mm">${formatDate(gv('td'))}</div>`:'');
+
+  const docsBlock=
+    (gv('docs')?`<div class="pf" style="left:22mm;top:103mm">${gv('docs')}</div>`:'');
+
+  const instrBlock=
+    (gv('oref')?`<div class="pf" style="left:22mm;top:203mm">Order: ${gv('oref')}${gv('eref')?' / Ref:':''}</div>`:'');
+
+  const estBlock=
+    (gv('estP')?`<div class="pf" style="left:22mm;top:250mm">${gv('estP')}</div>`:'')+
+    (gv('estD')?`<div class="pf" style="left:62mm;top:250mm">${formatDate(gv('estD'))}</div>`:'');
+
+  const printHTML=`<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>CMR</title>
+<style>
+@page{size:A4 portrait;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:210mm;height:297mm;background:#fff}
+.page{width:210mm;height:297mm;position:relative;background:#fff}
+.pf{position:absolute;font-family:Arial,sans-serif;font-size:9.5pt;color:#000;line-height:1.3;white-space:nowrap}
+</style></head>
+<body><div class="page">
+${senderBlock}${consigneeBlock}${deliveryBlock}${takeoverBlock}${docsBlock}${goodsHTML}${instrBlock}${estBlock}
+</div>
+<script>window.onload=function(){window.print()}<\/script>
+</body></html>`;
+
+  const frame=document.getElementById('pf');
+  try{
+    frame.srcdoc=printHTML;
+    frame.onload=()=>{try{frame.contentWindow.print();}catch(e){blobFallback(printHTML);}};
+  }catch(e){blobFallback(printHTML);}
+}
+
+function blobFallback(html){
+  try{
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='CMR.html';a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    document.getElementById('printMsg').textContent='CMR.html downloaded — open it and press Ctrl+P to print.';
+  }catch(e){alert('Could not generate file.');}
+}
+
+function clearAll(){
+  b64=null;mtype=null;gc=0;
+  window._totalPkgs='';window._totalPallets='';window._totalWt='';
+  document.getElementById('fi').value='';
+  document.getElementById('fb').innerHTML='';
+  document.getElementById('sb').innerHTML='';
+  document.getElementById('fc').style.display='none';
+  document.getElementById('ac').style.display='none';
+  document.getElementById('gr').innerHTML='';
+  ['sN','sA','sC','sCC','cN','cA','cC','cCC','dp','dc','lp','lc','td','docs','oref','eref','estP','estD'].forEach(id=>{
+    const e=document.getElementById(id);if(e)e.value='';
+  });
+}
+</script>
+</body>
+</html>
